@@ -22,12 +22,18 @@ You need to have:
  - A read/write DigitalOcean API token
  - You need the fingerprint of a [valid ssh key](https://docs.digitalocean.com/products/droplets/how-to/add-ssh-keys/to-account/) for your DigitalOcean account
  - You need to have doctl (DigitalOcean Binary) installed on your macOS system. [Check out brew.sh](https://brew.sh) if you don't know how to get doctl!
+ - You need to initialise authentication for doctl with the DigitalOcean token
+
+Example for authentication:
+
+`doctl auth init -t $DO_API_TOKEN`
 
 Ideally the token should be available in your shell environment variables as DO_API_TOKEN. You can use the token directly adding it to line 10 of konnector. The same goes for the ssh key fingerprint. This should be in your shell environment variables as DO_SSH_FINGERPRINT; or hardcoded in line 11 of konnector. Your choice!
 
 Also, if you want to use a non-default ssh key, the path should be in the shell environment variable DO_SSH_KEY or hardcoded in line 12 :)
 
 Example for your .zshrc:
+
 `export DO_SSH_KEY='~/.ssh/do_rsa'`
 
 **Be aware though** -> do not expose the API token to others in any way. I would also recommend to set an expire timeframe for it.
