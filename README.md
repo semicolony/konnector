@@ -9,6 +9,8 @@ It's a single python script which:
  - greps the logfile for the unique authentication token
  - displays the http link and token required for the initial setup via a browser
 
+![alt text](https://github.com/semicolony/konnector/raw/main/rundown.png?raw=true)
+
 ## Why?
 The idea for it was triggered by the need of a fresh public IP, on-the-fly, with the least hassle while at the same using the wireguard client on a macOS system.
 
