@@ -1,23 +1,59 @@
 #!/usr/bin/env python3
 
 
-import sys
-import subprocess
-import requests
-import json
+import sys, os, argparse
+import shlex, subprocess
+import requests, json
 import time
-import shlex
 
 
+DO_API_TOKEN = False            # '' Add your token
+DO_SSH_FINGERPRINT = False      # '' Add your fingerprint
+DO_SSH_KEY = False              # '' Add your key
+
+
+API_TOKEN = DO_API_TOKEN if DO_API_TOKEN else os.environ.get('DO_API_TOKEN')
+FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
+    else os.environ.get('DO_SSH_FINGERPRINT')
+SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
+
+
+### Globals
 URL = 'https://api.digitalocean.com/v2/droplets'
-TOKENFILE = '/Users/Paul/Projects/secrets/dotoken'
-with open(TOKENFILE, 'r') as f:
-    TOKEN = f.readline().strip()
-REGIONS = ['nyc1', 'nyc3', 'sfo3', 'ams3', 'sgp1', 'lon1', 'fra1', 'tor1', 'blr1']
 HEADERS = {
-    'Authorization': f"Bearer {TOKEN}",
+    'Authorization': f"Bearer {API_TOKEN}",
     'Content-type': 'application/json'
 }
+
+# These were the regions which allowed new droplets at the time the script was
+# created. Best to check if they are still available for on-demand droplets!
+REGIONS = [
+    'nyc1',
+    'nyc3',
+    'sfo3',
+    'ams3',
+    'sgp1',
+    'lon1',
+    'fra1',
+    'tor1',
+    'blr1'
+]
+
+
+def parse_arguments():
+    global region
+    global name
+    parser = argparse.ArgumentParser(description = f"Usage for {sys.argv[0]}")
+    args = parser.parse_args()
+    parser.add_argument('name', help='droplet name', metavar='DROPLET', \
+        type=ascii)
+    parser.add_argument('region', help='target region', metavar='REGION', \
+        choices=REGIONS)
+    parser.add_argument('--dryrun','-n', help='dryrun', action='store_true')
+    args = parser.parse_args()
+    name = args.name
+    region = args.region
+    dryrun = args.dryrun
 
 
 def err_exit(code,msg,*args):
@@ -40,7 +76,7 @@ def create_droplet(name,region):
         'region': region,
         'size': 's-2vcpu-4gb',
         'image': 'kuyio-wireguardianvpna',
-        'ssh_keys': ['3a:bf:bb:3d:2a:31:94:89:44:ef:fa:2c:6f:cd:ef:ac']
+        'ssh_keys': [f"{FINGERPRINT}"]
     }
     r = requests.post(URL, headers=HEADERS, json=data)
     response = json.loads(r.content.decode('utf-8'))
@@ -53,7 +89,8 @@ def create_droplet(name,region):
 
 
 def get_public_ipv4(droplet_id):
-    cmd = ['doctl', 'compute', 'droplet', 'get', droplet_id, '--format', 'PublicIPv4', '--no-header']
+    cmd = ['doctl', 'compute', 'droplet', 'get', droplet_id, '--format', \
+        'PublicIPv4', '--no-header']
     try:
         output = subprocess.run(cmd, capture_output=True, text=True)
     except Exception as err:
@@ -62,19 +99,25 @@ def get_public_ipv4(droplet_id):
 
 
 def start_konnect(name,droplet_ip):
+    key = f"-i {DO_SSH_KEY}" if DO_SSH_KEY else key = ''
     print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
     time.sleep(120)
     print('Starting konnect...')
-    cmd = shlex.split(f'ssh -i /Users/Paul/.ssh/cloud_rsa -o StrictHostKeyChecking=no root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; docker-compose up -d"')
+    cmd = shlex.split(f'ssh {key} StrictHostKeyChecking=no \
+        root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; \
+        docker-compose up -d"')
     try:
         output = subprocess.run(cmd, capture_output=True, text=True)
-        print(output.stdout)
     except Exception as err:
         err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
+    else:
+        print(output.stdout)
     time.sleep(10)
-    print('Getting your token...')
+    print('Getting your authentication token...')
     time.sleep(10)
-    cmd = shlex.split(f'''ssh -i /Users/Paul/.ssh/cloud_rsa -o StrictHostKeyChecking=no root@{droplet_ip} "cd /opt/konnect; docker-compose logs | grep "token" | awk '{{print $14}}'"''')
+    cmd = shlex.split(f'''ssh {key} -o StrictHostKeyChecking=no \
+        root@{droplet_ip} "cd /opt/konnect; docker-compose logs \
+        | grep "token" | awk '{{print $14}}'"''')
     try:
         output = subprocess.run(cmd, capture_output=True, text=True)
         konnecttoken = output.stdout
@@ -84,11 +127,6 @@ def start_konnect(name,droplet_ip):
 
 
 def main():
-    name = sys.argv[1]
-    if sys.argv[2] in REGIONS:
-        region = sys.argv[2]
-    else:
-        err_exit(1,"Region invalid",f"Valid regions are: {' '.join(REGIONS)}")
     droplet_id = str(create_droplet(name,region))
     droplet_ip = (get_public_ipv4(droplet_id)).strip()
     start_konnect(name,droplet_ip)
