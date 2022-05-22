@@ -84,7 +84,7 @@ def create_droplet(name,region):
     droplet_id = response['droplet']['id']
     print(f"Waiting for the droplet {droplet_id} to be created...")
     time.sleep(15)
-    return droplet_id
+    return str(droplet_id)
 
 
 def get_public_ipv4(droplet_id):
@@ -95,19 +95,20 @@ def get_public_ipv4(droplet_id):
             check=True)
     except Exception as err:
         err_exit(1,f"{' '.join(cmd)} failed", f"{err}")
-    return output.stdout
+    return output.stdout.strip()
 
 
 def start_konnect(name,droplet_ip):
     key = f"-i {SSH_KEY}" if SSH_KEY else ''
     print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
     time.sleep(120)
-    print('Starting konnect...')
-    cmd = shlex.split(f'ssh {key} StrictHostKeyChecking=no \
+    print('Starting konnect docker container...')
+    cmd = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; \
         docker-compose up -d"')
     try:
-        output = subprocess.run(cmd, capture_output=True, text=True)
+        output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
+            check=True)
     except Exception as err:
         err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
     else:
@@ -115,20 +116,20 @@ def start_konnect(name,droplet_ip):
     time.sleep(10)
     print('Getting your authentication token...')
     time.sleep(10)
-    cmd = shlex.split(f'''ssh {key} -o StrictHostKeyChecking=no \
+    cmd = shlex.split(f'''ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; docker-compose logs \
         | grep "token" | awk '{{print $14}}'"''')
     try:
-        output = subprocess.run(cmd, capture_output=True, text=True)
-        konnecttoken = output.stdout
+        output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
+            check=True)
     except Exception as err:
         err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
-    print(f"\nToken to validate http://{droplet_ip} -> {konnecttoken}\n")
+    print(f"\nToken to validate http://{droplet_ip} -> {output.stdout}\n")
 
 
 def main():
     parse_arguments()
-    droplet_id = str(create_droplet(name,region))
+    droplet_id = (create_droplet(name,region))
     droplet_ip = (get_public_ipv4(droplet_id)).strip()
     start_konnect(name,droplet_ip)
 
