@@ -21,15 +21,16 @@ You need to have:
  - A [DigitalOcean account (referral link)](https://m.do.co/c/c1ec6dfbd619)
  - A read/write DigitalOcean API token
  - You need the fingerprint of a [valid ssh key](https://docs.digitalocean.com/products/droplets/how-to/add-ssh-keys/to-account/) for your DigitalOcean account
- - You need to have doctl (DigitalOcean Binary) installed on your macOS system ([Check out brew.sh](https://brew.sh) if you don't know how to get doctl)
+ - You need to have doctl (DigitalOcean Binary) installed on your macOS system. [Check out brew.sh](https://brew.sh) if you don't know how to get doctl!
 
-Ideally the token should be available in your shell environment variables as DO_API_TOKEN. You can use the token directly by uncommenting line 10 of konnector and putting the string directly into the script. The same goes for the ssh key fingerprint. This should be in your shell environment variables as DO_SSH_FINGERPRINT; or hardcoded in line 11 of konnector. Your choice!
+Ideally the token should be available in your shell environment variables as DO_API_TOKEN. You can use the token directly adding it to line 10 of konnector. The same goes for the ssh key fingerprint. This should be in your shell environment variables as DO_SSH_FINGERPRINT; or hardcoded in line 11 of konnector. Your choice!
+
+Also, if you want to use a non-default ssh key, the path should be in the shell environment variable DO_SSH_KEY or hardcoded in line 12 :)
 
 Example for your .zshrc:
 `export DO_SSH_KEY='~/.ssh/do_rsa'`
 
-Also, if you want to use a non-default ssh key, the path should be in the shell environment variable DO_SSH_KEY or hardcoded in line 12 :)
-
-**Be aware though** -> do not expose the API token to others in any way. I would also recommend to set an expire timeframe for it. Better safe than sorry!
+**Be aware though** -> do not expose the API token to others in any way. I would also recommend to set an expire timeframe for it.
+Better safe than sorry!
 
 Happy hacking!
