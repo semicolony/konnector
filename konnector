@@ -99,7 +99,7 @@ def get_public_ipv4(droplet_id):
 
 
 def start_konnect(name,droplet_ip):
-    key = f"-i {DO_SSH_KEY}" if DO_SSH_KEY else key = ''
+    key = f"-i {SSH_KEY}" if SSH_KEY else key = ''
     print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
     time.sleep(120)
     print('Starting konnect...')
