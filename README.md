@@ -30,6 +30,6 @@ Example for your .zshrc:
 
 Also, if you want to use a non-default ssh key, the path should be in the shell environment variable DO_SSH_KEY or hardcoded in line 12 :)
 
-==Be aware though== -> do not expose the API token to others in any way. I would also recommend to set an expire timeframe for it. Better safe than sorry!
+**Be aware though** -> do not expose the API token to others in any way. I would also recommend to set an expire timeframe for it. Better safe than sorry!
 
 Happy hacking!
