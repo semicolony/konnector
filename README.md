@@ -28,7 +28,7 @@ Example for authentication:
 
 `doctl auth init -t $DO_API_TOKEN`
 
-Ideally the token should be available in your shell environment variables as DO_API_TOKEN. You can use the token directly adding it to line 10 of konnector. The same goes for the ssh key fingerprint. This should be in your shell environment variables as DO_SSH_FINGERPRINT; or hardcoded in line 11 of konnector. Your choice!
+Ideally the token should be available in your shell environment variables as DO_API_TOKEN. You can use the token directly by adding it to line 10 of konnector. The same goes for the ssh key fingerprint. This should be in your shell environment variables as DO_SSH_FINGERPRINT; or hardcoded in line 11 of konnector. Your choice!
 
 Also, if you want to use a non-default ssh key, the path should be in the shell environment variable DO_SSH_KEY or hardcoded in line 12 :)
 
