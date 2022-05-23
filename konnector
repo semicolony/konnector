@@ -37,6 +37,7 @@ REGIONS = [
 def parse_arguments():
     global region
     global name
+    global dryrun
     parser = argparse.ArgumentParser(description = f"Usage for {sys.argv[0]}")
     parser.add_argument('name', help='Name for the new droplet', \
         metavar='DROPLET')
@@ -76,54 +77,76 @@ def create_droplet(name,region):
         'image': 'kuyio-wireguardianvpna',
         'ssh_keys': [FINGERPRINT]
     }
-    r = requests.post(URL, headers=HEADERS, json=data)
-    response = json.loads(r.content.decode('utf-8'))
-    if not r.status_code == 202:
-        err_exit(1,f"Creation of {name} failed",f"{response}")
-    droplet_id = response['droplet']['id']
-    print(f"Waiting for the droplet {droplet_id} to be created...")
-    time.sleep(15)
-    return str(droplet_id)
+    if not dryrun:
+        r = requests.post(url, headers=headers, json=data)
+        response = json.loads(r.content.decode('utf-8'))
+        if not r.status_code == 202:
+            err_exit(1,f"Creation of {name} failed",f"{response}")
+        droplet_id = response['droplet']['id']
+        print(f"Waiting for the droplet {droplet_id} to be created...")
+        time.sleep(15)
+        return str(droplet_id)
+    else:
+        print(f"URL -> {url}")
+        print('Headers ->')
+        for k,v in headers.items():
+            print(f"\t{k} -> {v}")
+        print('Data ->')
+        for k,v in data.items():
+            print(f"\t{k} -> {v}")
+        droplet_id = '532225757'
+        print(f"Expecting a droplet ID like -> {droplet_id}")
+        return droplet_id
 
 
 def get_public_ipv4(droplet_id):
     cmd = ['doctl', 'compute', 'droplet', 'get', droplet_id, '--format', \
         'PublicIPv4', '--no-header']
-    try:
-        output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-            check=True)
-    except Exception as err:
-        err_exit(1,f"{' '.join(cmd)} failed", f"{err}")
-    return output.stdout.strip()
+    if not dryrun:
+        try:
+            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
+                check=True)
+        except Exception as err:
+            err_exit(1,f"{' '.join(cmd)} failed", f"{err}")
+        return output.stdout.strip()
+    else:
+        print(f"Running \'{' '.join(cmd)}\' to query the public IPv4")
+        return '203.0.113.10'
 
 
 def start_konnect(name,droplet_ip):
     key = f"-i {SSH_KEY}" if SSH_KEY else ''
-    print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
-    time.sleep(120)
-    print('Starting konnect docker container...')
-    cmd = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
+    if not dryrun:
+        print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
+        time.sleep(120)
+        print('Starting konnect docker container...')
+        cmd = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; \
         docker-compose up -d"')
-    try:
-        output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-            check=True)
-    except Exception as err:
-        err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
-    else:
-        print(output.stdout)
-    time.sleep(10)
-    print('Getting your authentication token...')
-    time.sleep(10)
-    cmd = shlex.split(f'''ssh -q {key} -o StrictHostKeyChecking=no \
+        try:
+            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
+                check=True)
+        except Exception as err:
+            err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
+        else:
+            print(output.stdout)
+        time.sleep(10)
+        print('Getting your authentication token...')
+        time.sleep(10)
+        cmd = shlex.split(f'''ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; docker-compose logs \
         | grep "token" | awk '{{print $14}}'"''')
-    try:
-        output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-            check=True)
-    except Exception as err:
-        err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
-    print(f"\nToken to validate http://{droplet_ip} -> {output.stdout}\n")
+        try:
+            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
+                check=True)
+        except Exception as err:
+            err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
+        print(f"\nToken to validate http://{droplet_ip} -> {output.stdout}\n")
+    else:
+        print(f" - Connecting to {droplet_ip} after waiting 2 min for bringup")
+        print(f" - Starting the konnect docker container")
+        print(f" - Connecting again to grep for the authentication token")
+        print(f" - Display token to authenticate -> http://{droplet_ip}")
 
 
 def main():
