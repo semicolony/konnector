@@ -18,12 +18,6 @@ FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
 SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
 
 
-### Globals
-URL = 'https://api.digitalocean.com/v2/droplets'
-HEADERS = {
-    'Authorization': f"Bearer {API_TOKEN}",
-    'Content-type': 'application/json'
-}
 
 # These were the regions which allowed new droplets at the time the script was
 # created. Best to check if they are still available for on-demand droplets!
@@ -70,12 +64,17 @@ def err_exit(code,msg,*args):
 
 def create_droplet(name,region):
     print(f"Creating droplet...\nName -> {name}\nRegion -> {region}")
+    url = 'https://api.digitalocean.com/v2/droplets'
+    headers = {
+        'Authorization': f"Bearer {API_TOKEN}",
+        'Content-type': 'application/json'
+    }
     data = {
         'name': name,
         'region': region,
         'size': 's-2vcpu-4gb',
         'image': 'kuyio-wireguardianvpna',
-        'ssh_keys': [f"{FINGERPRINT}"]
+        'ssh_keys': [FINGERPRINT]
     }
     r = requests.post(URL, headers=HEADERS, json=data)
     response = json.loads(r.content.decode('utf-8'))
