@@ -129,7 +129,7 @@ def start_konnect(name,droplet_ip):
 def main():
     parse_arguments()
     droplet_id = (create_droplet(name,region))
-    droplet_ip = (get_public_ipv4(droplet_id)).strip()
+    droplet_ip = (get_public_ipv4(droplet_id))
     start_konnect(name,droplet_ip)
 
 
