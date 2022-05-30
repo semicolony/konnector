@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 
 
-import sys, os, argparse
+import os, argparse, pyperclip
 import shlex, subprocess
 import requests, json
 import time
+import logging
 
 
 DO_API_TOKEN = False            # '' Add your token
-DO_SSH_FINGERPRINT = False      # '' Add your fingerprint
 DO_SSH_KEY = False              # '' Add your key
+DO_SSH_FINGERPRINT = False      # '' Add your fingerprint
 
 
 API_TOKEN = DO_API_TOKEN if DO_API_TOKEN else os.environ.get('DO_API_TOKEN')
+SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
 FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
     else os.environ.get('DO_SSH_FINGERPRINT')
-SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
 
 
 
