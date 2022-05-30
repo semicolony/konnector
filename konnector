@@ -127,6 +127,7 @@ def create_droplet():
 def get_public_ipv4(droplet_id):
     get_public_ipv4 = ['doctl', 'compute', 'droplet', 'get', droplet_id, \
     '--format', 'PublicIPv4', '--no-header']
+    logging.info('Getting pulic IPv4 address via doctl')
     if not dryrun:
         return run_command(get_public_ipv4,'stdout')
     else:
