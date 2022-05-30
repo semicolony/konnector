@@ -115,8 +115,8 @@ def get_public_ipv4(droplet_id):
     if not dryrun:
         return run_command(get_public_ipv4,'stdout')
     else:
-        return '203.0.113.10'
         logging.info(f"DRYRUN: Running -> {' '.join(get_public_ipv4)}")
+        return dryrun_droplet_ip
 
 
 def start_konnect(name,droplet_ip):
