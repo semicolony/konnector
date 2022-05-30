@@ -54,6 +54,29 @@ def parse_arguments():
     name = args.name
     region = args.region
     dryrun = args.dryrun
+def run_command(cmd,mode):
+    logging.info(' '.join(cmd))
+    logging.info(f"stdmode is {mode}")
+    if mode == 'quiet':
+        try:
+            output = subprocess.run(cmd,stdout=subprocess.DEVNULL, \
+                text=True,check=True)
+        except Exception as err:
+            logging.error(f"{cmd} failed -> {err}")
+    elif mode == 'fullauto':       # needs to be tested, stdout should not be visible / fullauto mode
+        try:
+            output = subprocess.run(cmd,stdout=subprocess.PIPE, \
+                text=True,check=True)
+                pyperclip.paste(output.stdout.strip())
+        except Exception as err:
+            logging.error(f"{cmd} failed -> {err}")
+    else:
+        try:
+            output = subprocess.run(cmd,stdout=subprocess.PIPE, \
+                text=True,check=True)
+            return output.stdout.strip()
+        except Exception as err:
+            logging.error(f"{cmd} failed -> {err}")
 
 
 def create_droplet():
@@ -90,12 +113,7 @@ def get_public_ipv4(droplet_id):
     cmd = ['doctl', 'compute', 'droplet', 'get', droplet_id, '--format', \
         'PublicIPv4', '--no-header']
     if not dryrun:
-        try:
-            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-                check=True)
-        except Exception as err:
-            err_exit(1,f"{' '.join(cmd)} failed", f"{err}")
-        return output.stdout.strip()
+        return run_command(get_public_ipv4,'stdout')
     else:
         return '203.0.113.10'
         logging.info(f"DRYRUN: Running -> {' '.join(get_public_ipv4)}")
@@ -103,32 +121,23 @@ def get_public_ipv4(droplet_id):
 
 def start_konnect(name,droplet_ip):
     key = f"-i {SSH_KEY}" if SSH_KEY else ''
+    ssh = f"ssh -q -o StrictHostKeyChecking=no {key} root@{droplet_ip}"
+    start_container = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
+        root@{droplet_ip} "cd /opt/konnect; docker-compose up -d"')
+    get_token = shlex.split(f'{ssh} "cd /opt/konnect ;docker-compose logs \
+| grep "token" | awk \'{{print $14}}\'"')
     if not dryrun:
         logging.info(f"Waiting for {name} -> {droplet_ip} to be reachable...")
         time.sleep(120)
-        cmd = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
-        root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; \
-        docker-compose up -d"')
-        try:
-            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-                check=True)
-        except Exception as err:
-            err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
         logging.info('Starting konnect docker container...')
+        if verbose:
+            run_command(start_container,'stdout')
         else:
-            print(output.stdout)
+            run_command(start_container,'quiet')
         time.sleep(10)
         logging.info('Getting your authentication token...')
         time.sleep(10)
-        cmd = shlex.split(f'''ssh -q {key} -o StrictHostKeyChecking=no \
-        root@{droplet_ip} "cd /opt/konnect; docker-compose logs \
-        | grep "token" | awk '{{print $14}}'"''')
-        try:
-            output = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, \
-                check=True)
-        except Exception as err:
-            err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
-        print(f"\nToken to validate http://{droplet_ip} -> {output.stdout}\n")
+        konnect_token = run_command(get_token,'stdout')
     else:
         logging.info(f"DRYRUN: Running -> {' '.join(start_container)}")
         logging.info(f"DRYRUN: Running -> {' '.join(get_token)}")
