@@ -56,8 +56,10 @@ def parse_arguments():
     dryrun = args.dryrun
 
 
-def create_droplet(name,region):
-    print(f"Creating droplet...\nName -> {name}\nRegion -> {region}")
+def create_droplet():
+    logging.info(f"Creating droplet...")
+    logging.info(f"Name -> {name}")
+    logging.info(f"Region -> {region}")
     url = 'https://api.digitalocean.com/v2/droplets'
     headers = {
         'Authorization': f"Bearer {API_TOKEN}",
@@ -74,21 +76,14 @@ def create_droplet(name,region):
         r = requests.post(url, headers=headers, json=data)
         response = json.loads(r.content.decode('utf-8'))
         if not r.status_code == 202:
+            logging.error(f"Creation of {name} failed\nError -> {response}")
+            exit(1)
         droplet_id = response['droplet']['id']
-        print(f"Waiting for the droplet {droplet_id} to be created...")
+        logging.info(f"Waiting for the droplet {droplet_id} to be created...")
         time.sleep(15)
         return str(droplet_id)
     else:
-        print(f"URL -> {url}")
-        print('Headers ->')
-        for k,v in headers.items():
-            print(f"\t{k} -> {v}")
-        print('Data ->')
-        for k,v in data.items():
-            print(f"\t{k} -> {v}")
-        droplet_id = '532225757'
-        print(f"Expecting a droplet ID like -> {droplet_id}")
-        return droplet_id
+        logging.info('DRYRUN: Would trigger droplet creation via API call')
 
 
 def get_public_ipv4(droplet_id):
@@ -102,16 +97,15 @@ def get_public_ipv4(droplet_id):
             err_exit(1,f"{' '.join(cmd)} failed", f"{err}")
         return output.stdout.strip()
     else:
-        print(f"Running \'{' '.join(cmd)}\' to query the public IPv4")
         return '203.0.113.10'
+        logging.info(f"DRYRUN: Running -> {' '.join(get_public_ipv4)}")
 
 
 def start_konnect(name,droplet_ip):
     key = f"-i {SSH_KEY}" if SSH_KEY else ''
     if not dryrun:
-        print(f"Waiting for {name} -> {droplet_ip} to be reachable...")
+        logging.info(f"Waiting for {name} -> {droplet_ip} to be reachable...")
         time.sleep(120)
-        print('Starting konnect docker container...')
         cmd = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; echo starting konnect service; \
         docker-compose up -d"')
@@ -120,10 +114,11 @@ def start_konnect(name,droplet_ip):
                 check=True)
         except Exception as err:
             err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
+        logging.info('Starting konnect docker container...')
         else:
             print(output.stdout)
         time.sleep(10)
-        print('Getting your authentication token...')
+        logging.info('Getting your authentication token...')
         time.sleep(10)
         cmd = shlex.split(f'''ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; docker-compose logs \
@@ -135,11 +130,10 @@ def start_konnect(name,droplet_ip):
             err_exit(2,f"{' '.join(cmd)} failed", f"{err}")
         print(f"\nToken to validate http://{droplet_ip} -> {output.stdout}\n")
     else:
-        print(f" - Connecting to {droplet_ip} after waiting 2 min for bringup")
-        print(f" - Starting the konnect docker container")
-        print(f" - Connecting again to grep for the authentication token")
-        print(f" - Display token to authenticate -> http://{droplet_ip}")
-
+        logging.info(f"DRYRUN: Running -> {' '.join(start_container)}")
+        logging.info(f"DRYRUN: Running -> {' '.join(get_token)}")
+        konnect_token = dryrun_token
+    logging.critical(f"Token to validate http://{droplet_ip} -> {konnect_token}")
 
 def main():
     parse_arguments()
