@@ -56,19 +56,6 @@ def parse_arguments():
     dryrun = args.dryrun
 
 
-def err_exit(code,msg,*args):
-    print(f"Error in: {__name__}")
-    print(f"{msg}")
-    if len(args) != 0:
-        if args is dict:
-            for k,v in args.items():
-                print(f"{k}: {v}")
-        else:
-            args = ' '.join(args)
-            print(f"Exception: {args}")
-    exit(code)
-
-
 def create_droplet(name,region):
     print(f"Creating droplet...\nName -> {name}\nRegion -> {region}")
     url = 'https://api.digitalocean.com/v2/droplets'
@@ -87,7 +74,6 @@ def create_droplet(name,region):
         r = requests.post(url, headers=headers, json=data)
         response = json.loads(r.content.decode('utf-8'))
         if not r.status_code == 202:
-            err_exit(1,f"Creation of {name} failed",f"{response}")
         droplet_id = response['droplet']['id']
         print(f"Waiting for the droplet {droplet_id} to be created...")
         time.sleep(15)
