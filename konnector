@@ -41,19 +41,34 @@ REGIONS = [
 
 
 def parse_arguments():
-    global region
     global name
+    global region
     global dryrun
-    parser = argparse.ArgumentParser(description = f"Usage for {sys.argv[0]}")
-    parser.add_argument('name', help='Name for the new droplet', \
+    global verbose
+    global fullauto
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name',help='Name for the new droplet',\
         metavar='DROPLET')
-    parser.add_argument('region', help='Target region for deployment', \
-        metavar='REGION', choices=REGIONS)
-    parser.add_argument('--dryrun','-n', help='dryrun', action='store_true')
+    parser.add_argument('region',help='Target region for deployment',\
+        metavar='REGION',choices=REGIONS)
+    parser.add_argument('--dryrun','-n',help='dryrun',action='store_true')
+    parser.add_argument('--verbose','-v',help='verbose',action='store_true')
+    parser.add_argument('--fullauto',\
+        help='runs the complete setup fully automatic',action='store_true')
     args = parser.parse_args()
     name = args.name
     region = args.region
     dryrun = args.dryrun
+    verbose = args.verbose
+    fullauto = args.fullauto
+    if verbose:
+        logging.basicConfig(\
+            level=logging.INFO,\
+#            format='%(asctime)s - %(level)s: %(message)s',\     #something wrong with the logging level var
+            datefmt='%d/%m/%Y %H:%M:%S'
+        )
+
+
 def run_command(cmd,mode):
     logging.info(' '.join(cmd))
     logging.info(f"stdmode is {mode}")
