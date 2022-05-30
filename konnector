@@ -19,6 +19,11 @@ FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
     else os.environ.get('DO_SSH_FINGERPRINT')
 
 
+# dryrun globals
+dryrun_droplet_id = '532225757'
+dryrun_droplet_ip = '203.0.113.10'
+dryrun_token = 'ifn203j2jclmv'
+
 
 # These were the regions which allowed new droplets at the time the script was
 # created. Best to check if they are still available for on-demand droplets!
