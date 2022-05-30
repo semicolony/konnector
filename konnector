@@ -119,9 +119,12 @@ def create_droplet():
         droplet_id = response['droplet']['id']
         logging.info(f"Waiting for the droplet {droplet_id} to be created...")
         time.sleep(15)
-        return str(droplet_id)
     else:
         logging.info('DRYRUN: Would trigger droplet creation via API call')
+        droplet_id = dryrun_droplet_id
+    if not droplet_id:
+        raise Exception('No droplet ID received, check your DO dashboard!')
+    return str(droplet_id)
 
 
 def get_public_ipv4(droplet_id):
