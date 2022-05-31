@@ -55,49 +55,61 @@ def parse_arguments():
     parser.add_argument('--verbose','-v',help='verbose',action='store_true')
     parser.add_argument('--fullauto',\
         help='runs the complete setup fully automatic',action='store_true')
+    parser.add_argument('--debug',action='store_true')
     args = parser.parse_args()
     name = args.name
     region = args.region
     dryrun = args.dryrun
     verbose = args.verbose
     fullauto = args.fullauto
+    debug = args.debug
+
+
+def set_logger():
+    global logger
+    global verblog
+    global drylog
+    FORMAT = '%(asctime)s %(name)s[%(levelname)s]: %(message)s'
+    logging.basicConfig(format=FORMAT,datefmt="%Y-%m-%dT%H:%M:%S%z")
+    logger = logging.getLogger('konnector')
+    drylog = logging.getLogger('dryrun')
+    verblog = logging.getLogger('verbose')
     if verbose:
-        logging.basicConfig(\
-            level=logging.INFO,\
-#            format='%(asctime)s - %(level)s: %(message)s',\     #something wrong with the logging level var
-            datefmt='%d/%m/%Y %H:%M:%S'
-        )
+        logger.setLevel(logging.INFO)
+        verblog.setLevel(logging.INFO)
+    if debug:
+        logger.setLevel(logging.DEBUG)
 
 
 def run_command(cmd,mode):
-    logging.info(' '.join(cmd))
-    logging.info(f"stdmode is {mode}")
+    verblog.info(' '.join(cmd))
+    verblog.debug(f"stdmode is {mode}")
     if mode == 'quiet':
         try:
             output = subprocess.run(cmd,stdout=subprocess.DEVNULL, \
                 text=True,check=True)
         except Exception as err:
-            logging.error(f"{cmd} failed -> {err}")
+            logger.error(f"{cmd} failed -> {err}")
     elif mode == 'fullauto':       # needs to be tested, stdout should not be visible / fullauto mode
         try:
             output = subprocess.run(cmd,stdout=subprocess.PIPE, \
                 text=True,check=True)
-                pyperclip.paste(output.stdout.strip())
+            pyperclip.paste(output.stdout.strip())
         except Exception as err:
-            logging.error(f"{cmd} failed -> {err}")
+            logger.error(f"{cmd} failed -> {err}")
     else:
         try:
             output = subprocess.run(cmd,stdout=subprocess.PIPE, \
                 text=True,check=True)
             return output.stdout.strip()
         except Exception as err:
-            logging.error(f"{cmd} failed -> {err}")
+            logger.error(f"{cmd} failed -> {err}")
 
 
 def create_droplet():
-    logging.info(f"Creating droplet...")
-    logging.info(f"Name -> {name}")
-    logging.info(f"Region -> {region}")
+    verblog.info(f"Creating droplet...")
+    verblog.info(f"Name -> {name}")
+    verblog.info(f"Region -> {region}")
     url = 'https://api.digitalocean.com/v2/droplets'
     headers = {
         'Authorization': f"Bearer {API_TOKEN}",
@@ -114,13 +126,13 @@ def create_droplet():
         r = requests.post(url, headers=headers, json=data)
         response = json.loads(r.content.decode('utf-8'))
         if not r.status_code == 202:
-            logging.error(f"Creation of {name} failed\nError -> {response}")
+            logger.error(f"Creation of {name} failed\nError -> {response}")
             exit(1)
         droplet_id = response['droplet']['id']
-        logging.info(f"Waiting for the droplet {droplet_id} to be created...")
+        verblog.info(f"Waiting for the droplet {droplet_id} to be created...")
         time.sleep(15)
     else:
-        logging.info('DRYRUN: Would trigger droplet creation via API call')
+        drylog.info('Would trigger droplet creation via API call')
         droplet_id = dryrun_droplet_id
     if not droplet_id:
         raise Exception('No droplet ID received, check your DO dashboard!')
@@ -130,11 +142,11 @@ def create_droplet():
 def get_public_ipv4(droplet_id):
     get_public_ipv4 = ['doctl', 'compute', 'droplet', 'get', droplet_id, \
     '--format', 'PublicIPv4', '--no-header']
-    logging.info('Getting pulic IPv4 address via doctl')
+    verblog.info('Getting pulic IPv4 address via doctl')
     if not dryrun:
         return run_command(get_public_ipv4,'stdout')
     else:
-        logging.info(f"DRYRUN: Running -> {' '.join(get_public_ipv4)}")
+        drylog.info(f"Running -> {' '.join(get_public_ipv4)}")
         return dryrun_droplet_ip
 
 
@@ -143,28 +155,30 @@ def start_konnect(droplet_ip):
     ssh = f"ssh -q -o StrictHostKeyChecking=no {key} root@{droplet_ip}"
     start_container = shlex.split(f'ssh -q {key} -o StrictHostKeyChecking=no \
         root@{droplet_ip} "cd /opt/konnect; docker-compose up -d"')
-    get_token = shlex.split(f'{ssh} "cd /opt/konnect ;docker-compose logs \
+    get_token = shlex.split(f'{ssh} "cd /opt/konnect; docker-compose logs \
 | grep "token" | awk \'{{print $14}}\'"')
     if not dryrun:
-        logging.info(f"Waiting for {name} -> {droplet_ip} to be reachable...")
+        verblog.info(f"Waiting for {name} -> {droplet_ip} to be reachable...")
         time.sleep(120)
-        logging.info('Starting konnect docker container...')
+        verblog.info('Starting konnect docker container...')
         if verbose:
             run_command(start_container,'stdout')
         else:
             run_command(start_container,'quiet')
         time.sleep(10)
-        logging.info('Getting your authentication token...')
+        verblog.info('Getting your authentication token...')
         time.sleep(10)
         konnect_token = run_command(get_token,'stdout')
     else:
-        logging.info(f"DRYRUN: Running -> {' '.join(start_container)}")
-        logging.info(f"DRYRUN: Running -> {' '.join(get_token)}")
+        drylog.info(f"Running -> {' '.join(start_container)}")
+        drylog.info(f"Running -> {' '.join(get_token)}")
         konnect_token = dryrun_token
-    logging.critical(f"Token to validate http://{droplet_ip} -> {konnect_token}")
+    logger.critical(f"Token to validate http://{droplet_ip} -> {konnect_token}")
+
 
 def main():
     parse_arguments()
+    set_logger()
     droplet_id = create_droplet()
     droplet_ip = get_public_ipv4(droplet_id)
     start_konnect(droplet_ip)
