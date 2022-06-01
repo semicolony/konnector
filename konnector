@@ -6,17 +6,19 @@ import shlex, subprocess
 import requests, json
 import time
 import logging
-
+from modules.fullauto import fullauto
 
 DO_API_TOKEN = False            # '' Add your token
 DO_SSH_KEY = False              # '' Add your key
 DO_SSH_FINGERPRINT = False      # '' Add your fingerprint
+DO_EMAIL = False                # '' Add your email of choice
 
 
 API_TOKEN = DO_API_TOKEN if DO_API_TOKEN else os.environ.get('DO_API_TOKEN')
 SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
 FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
     else os.environ.get('DO_SSH_FINGERPRINT')
+EMAIL = DO_EMAIL if DO_EMAIL else os.environ.get('DO_EMAIL')
 
 
 # dryrun globals
@@ -45,7 +47,8 @@ def parse_arguments():
     global region
     global dryrun
     global verbose
-    global fullauto
+    global run_fullauto
+    global debug
     parser = argparse.ArgumentParser()
     parser.add_argument('name',help='Name for the new droplet',\
         metavar='DROPLET')
@@ -61,7 +64,7 @@ def parse_arguments():
     region = args.region
     dryrun = args.dryrun
     verbose = args.verbose
-    fullauto = args.fullauto
+    run_fullauto = args.fullauto
     debug = args.debug
 
 
@@ -174,6 +177,7 @@ def start_konnect(droplet_ip):
         drylog.info(f"Running -> {' '.join(get_token)}")
         konnect_token = dryrun_token
     logger.critical(f"Token to validate http://{droplet_ip} -> {konnect_token}")
+    pyperclip.copy(konnect_token) if run_fullauto else None
 
 
 def main():
@@ -181,7 +185,9 @@ def main():
     set_logger()
     droplet_id = create_droplet()
     droplet_ip = get_public_ipv4(droplet_id)
+    url = f"http://{droplet_ip}"
     start_konnect(droplet_ip)
+    fullauto(url,name,region,EMAIL) if run_fullauto else None
 
 
 if __name__ == '__main__':
