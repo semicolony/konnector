@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+
+
+import os, argparse, pyperclip
+import shlex, subprocess
+import requests, json
+import time
+import logging
+from modules.fullauto import fullauto
+
+
+DO_API_TOKEN = False            # '' Add your token
+DO_SSH_KEY = False              # '' Add your key
+DO_SSH_FINGERPRINT = False      # '' Add your fingerprint
+DO_EMAIL = False                # '' Add your email of choice
+
+
+API_TOKEN = DO_API_TOKEN if DO_API_TOKEN else os.environ.get('DO_API_TOKEN')
+SSH_KEY = DO_SSH_KEY if DO_SSH_KEY else os.environ.get('DO_SSH_KEY')
+FINGERPRINT = DO_SSH_FINGERPRINT if DO_SSH_FINGERPRINT \
+    else os.environ.get('DO_SSH_FINGERPRINT')
+EMAIL = DO_EMAIL if DO_EMAIL else os.environ.get('DO_EMAIL')
+KEY = f"-i {SSH_KEY}" if SSH_KEY else None
+
+
+# These were the regions which allowed new droplets at the time the script was
+# created. Best to check if they are still available for on-demand droplets!
+REGIONS = [
+    'nyc1',
+    'nyc3',
+    'sfo3',
+    'ams3',
+    'sgp1',
+    'lon1',
+    'fra1',
+    'tor1',
+    'blr1'
+]
+
+
+def parse_arguments():
+    global name
+    global region
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name',help='Name for the new droplet',\
+        metavar='DROPLET')
+    parser.add_argument('region',help='Target region for deployment',\
+        metavar='REGION',choices=REGIONS)
+    args = parser.parse_args()
+    name = args.name
+    region = args.region
+
+
+def set_logger():
+    global logger
+    FORMAT = '%(asctime)s %(name)s[%(levelname)s]: %(message)s'
+    logging.basicConfig(format=FORMAT,datefmt="%Y-%m-%dT%H:%M:%S%z")
+    logger = logging.getLogger('konnector')
+    logger.setLevel(logging.DEBUG)
+
+
+def create_droplet():
+    url = 'https://api.digitalocean.com/v2/droplets'
+    headers = {
+        'Authorization': f"Bearer {API_TOKEN}",
+        'Content-type': 'application/json'
+    }
+    data = {
+        'name': name,
+        'region': region,
+        'size': 's-2vcpu-4gb',
+        'image': 'kuyio-wireguardianvpna',
+        'ssh_keys': [FINGERPRINT]
+    }
+    r = requests.post(url, headers=headers, json=data)
+    response = json.loads(r.content.decode('utf-8'))
+    if not r.status_code == 202:
+        logger.error(f"Creation of {name} failed\nError -> {response}")
+        exit(1)
+    droplet_id = response['droplet']['id']
+    time.sleep(15)
+    if not droplet_id:
+        raise Exception('No droplet ID received, check your DO dashboard!')
+        exit(1)
+    return str(droplet_id)
+
+
+def get_public_ipv4(droplet_id):
+    global ssh
+    cmd = ['doctl', 'compute', 'droplet', 'get', droplet_id, \
+    '--format', 'PublicIPv4', '--no-header']
+    try:
+        output = subprocess.run(cmd,stdout=subprocess.PIPE, \
+            text=True,check=True)
+    except Exception as err:
+        logger.error(f"{cmd} failed -> {err}")
+        exit(1)
+    ip = output.stdout.strip()
+    ssh = f"ssh -q -o StrictHostKeyChecking=no {KEY} root@{ip}"
+    return ip
+
+
+def start_konnect(droplet_ip):
+    cmd = shlex.split(f'ssh -q {KEY} -o StrictHostKeyChecking=no \
+root@{droplet_ip} "cd /opt/konnect; docker-compose up -d &>/dev/null"')
+    time.sleep(120)
+    try:
+        output = subprocess.run(cmd)
+    except Exception as err:
+        logger.error(f"{cmd} failed -> {err}")
+        exit(1)
+
+
+def get_token(droplet_ip):
+    cmd = shlex.split(f'{ssh} "cd /opt/konnect; docker-compose logs \
+| grep "token" | awk \'{{print $14}}\'"')
+    time.sleep(10)
+    try:
+        output = subprocess.run(cmd,stdout=subprocess.PIPE, \
+            text=True,check=True)
+    except Exception as err:
+        logger.error(f"{cmd} failed -> {err}")
+        exit(1)
+    token = str(output.stdout.strip())
+    logger.info(f'Extracted token -> {token}')
+    return token
+
+
+def main():
+    parse_arguments()
+    set_logger()
+    logger.warning('arguments parsed; logger set')
+    droplet_id = create_droplet()
+    logger.warning(f'droplet created, droplet_id => {droplet_id}')
+    droplet_ip = get_public_ipv4(droplet_id)
+    logger.warning(f'droplet ip queried, droplet_ip => {droplet_ip}')
+    url = f"http://{droplet_ip}"
+    logger.warning(f'droplet url => {url}')
+    logger.warning('Starting the konnect container')
+    start_konnect(droplet_ip)
+    logger.warning('Container started, getting token now')
+    auth_token = get_token(droplet_ip)
+    logger.warning(auth_token)
+
+    fullauto(url,name,region,EMAIL,auth_token)
+
+
+if __name__ == '__main__':
+    main()
