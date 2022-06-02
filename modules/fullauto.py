@@ -1,6 +1,7 @@
 import webbrowser
 import pyperclip    # pip install pyperclip
 import logging
+import time
 
 
 logger = logging.getLogger('fullauto')
